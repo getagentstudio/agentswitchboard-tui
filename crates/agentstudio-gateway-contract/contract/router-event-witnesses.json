@@ -1,0 +1,88 @@
+[
+  {
+    "event": {
+      "item": {
+        "itemId": "msg_one",
+        "kind": {
+          "kind": "userMessage"
+        },
+        "text": "First question"
+      },
+      "kind": "itemStarted"
+    },
+    "sequence": 9007199254740991
+  },
+  {
+    "event": {
+      "inputId": "input-1",
+      "kind": "turnStarted",
+      "turnId": "turn-1"
+    },
+    "sequence": 9007199254740992
+  },
+  {
+    "event": {
+      "item": {
+        "itemId": "msg_two",
+        "kind": {
+          "kind": "agentMessage"
+        },
+        "text": "Starting"
+      },
+      "kind": "itemStarted"
+    },
+    "sequence": 9007199254740993
+  },
+  {
+    "event": {
+      "item": {
+        "itemId": "msg_two",
+        "kind": {
+          "kind": "agentMessage"
+        },
+        "text": "Finished"
+      },
+      "kind": "itemUpdated"
+    },
+    "sequence": 9007199254740994
+  },
+  {
+    "event": {
+      "itemId": "msg_two",
+      "kind": "itemCompleted"
+    },
+    "sequence": 9007199254740995
+  },
+  {
+    "event": {
+      "kind": "turnEnded",
+      "outcome": {
+        "kind": "ended",
+        "local_cause": null,
+        "stop_reason": "endTurn"
+      },
+      "turnId": "turn-1"
+    },
+    "sequence": 9007199254740996
+  },
+  {
+    "event": {
+      "item": {
+        "itemId": "msg_three",
+        "kind": {
+          "kind": "notice"
+        },
+        "text": null
+      },
+      "kind": "itemStarted"
+    },
+    "sequence": 9007199254740997
+  },
+  {
+    "event": {
+      "kind": "resyncRequired",
+      "replayEpoch": 18446744073709551615
+    },
+    "sequence": 18446744073709551615
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "name": "agentswitchboard-tui",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#app/*": "./apps/agentswitchboard-tui/src/*.ts",
+    "#gateway/*": "./packages/agentstudio-gateway-client/src/*.ts"
+  }
+}

@@ -1,0 +1,502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LocalFrameSchemas",
+  "type": "object",
+  "properties": {
+    "ended": {
+      "$ref": "#/$defs/EndedFrame"
+    },
+    "envelope_refusal": {
+      "$ref": "#/$defs/EnvelopeRefusal"
+    },
+    "gap": {
+      "$ref": "#/$defs/GapFrame"
+    },
+    "heartbeat": {
+      "$ref": "#/$defs/HeartbeatFrame"
+    },
+    "item": {
+      "$ref": "#/$defs/ItemFrame"
+    },
+    "snapshot_end": {
+      "$ref": "#/$defs/SnapshotEndFrame"
+    }
+  },
+  "required": [
+    "envelope_refusal",
+    "item",
+    "snapshot_end",
+    "heartbeat",
+    "gap",
+    "ended"
+  ],
+  "$defs": {
+    "EndReason": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "cancelled",
+        "closed"
+      ]
+    },
+    "EndedFrame": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/EndReason"
+        }
+      },
+      "required": [
+        "reason"
+      ]
+    },
+    "EnvelopeCode": {
+      "type": "string",
+      "enum": [
+        "incompatibleVersion",
+        "invalidFrame",
+        "scopeDenied",
+        "frameTooLarge",
+        "unavailable"
+      ]
+    },
+    "EnvelopeError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/EnvelopeCode"
+        },
+        "message": {
+          "type": "string"
+        },
+        "supportedVersions": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "EnvelopeRefusal": {
+      "type": "object",
+      "properties": {
+        "envelopeError": {
+          "$ref": "#/$defs/EnvelopeError"
+        }
+      },
+      "required": [
+        "envelopeError"
+      ]
+    },
+    "GapFrame": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/GapPosition"
+        },
+        "reason": {
+          "$ref": "#/$defs/GapReason"
+        }
+      },
+      "required": [
+        "cursor",
+        "reason"
+      ]
+    },
+    "GapPosition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WireCursor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GapReason": {
+      "type": "string",
+      "enum": [
+        "lag",
+        "epoch",
+        "eventTooLarge"
+      ]
+    },
+    "HeartbeatFrame": {
+      "type": "object",
+      "properties": {
+        "serverTsMs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "serverTsMs"
+      ]
+    },
+    "ItemFrame": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/WireCursor"
+        },
+        "phase": {
+          "$ref": "#/$defs/ItemPhase"
+        },
+        "record": {
+          "$ref": "#/$defs/OrderedRecord"
+        }
+      },
+      "required": [
+        "phase",
+        "cursor",
+        "record"
+      ]
+    },
+    "ItemPhase": {
+      "type": "string",
+      "enum": [
+        "history",
+        "live"
+      ]
+    },
+    "LocalCause": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "outputOverflow"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "other": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "other"
+          ]
+        }
+      ]
+    },
+    "OrderedRecord": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/TranscriptEvent"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "event"
+      ]
+    },
+    "SnapshotEndFrame": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/WireCursor"
+        }
+      },
+      "required": [
+        "cursor"
+      ]
+    },
+    "StopReason": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "endTurn",
+            "maxTokens",
+            "maxTurnRequests",
+            "refusal",
+            "cancelled"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "unknown": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "unknown"
+          ]
+        }
+      ]
+    },
+    "TranscriptEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "inputId": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "turnStarted"
+            },
+            "turnId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "inputId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "turnEnded"
+            },
+            "outcome": {
+              "$ref": "#/$defs/TurnOutcome"
+            },
+            "turnId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "outcome"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "item": {
+              "$ref": "#/$defs/TranscriptItem"
+            },
+            "kind": {
+              "type": "string",
+              "const": "itemStarted"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "item"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "item": {
+              "$ref": "#/$defs/TranscriptItem"
+            },
+            "kind": {
+              "type": "string",
+              "const": "itemUpdated"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "item"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "itemId": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "itemCompleted"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "itemId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "resyncRequired"
+            },
+            "replayEpoch": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "replayEpoch"
+          ]
+        }
+      ]
+    },
+    "TranscriptItem": {
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/TranscriptItemKind"
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "itemId",
+        "kind"
+      ]
+    },
+    "TranscriptItemKind": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "userMessage"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "agentMessage"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "notice"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "TurnLostReason": {
+      "type": "string",
+      "enum": [
+        "providerRetired",
+        "providerTurnFailed",
+        "endNotObservable"
+      ]
+    },
+    "TurnOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "ended"
+            },
+            "local_cause": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/LocalCause"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "stop_reason": {
+              "$ref": "#/$defs/StopReason"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "stop_reason"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "lost"
+            },
+            "reason": {
+              "$ref": "#/$defs/TurnLostReason"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "WireCursor": {
+      "type": "object",
+      "properties": {
+        "epoch": {
+          "type": "string"
+        },
+        "sequence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "epoch",
+        "sequence"
+      ]
+    }
+  }
+}

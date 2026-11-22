@@ -1,0 +1,140 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Schema } from "#gateway/effect-runtime";
+
+const object = Schema.Record(Schema.String, Schema.Unknown);
+const records = Schema.decodeUnknownSync(object);
+const stringList = Schema.decodeUnknownSync(Schema.Array(Schema.String));
+const contractDirectory = join(
+  import.meta.dirname,
+  "../../../crates/agentstudio-gateway-contract/contract",
+);
+
+function source(name: string): Record<string, unknown> {
+  return records(JSON.parse(readFileSync(join(contractDirectory, name), "utf8")));
+}
+
+function definitionNames(document: Record<string, unknown>, prefix: string): string {
+  const definitions = records(document["$defs"]);
+  const pending = new Map(Object.entries(definitions));
+  const emitted = new Set<string>();
+  const lines: string[] = [];
+  while (pending.size > 0) {
+    let progressed = false;
+    for (const [name, node] of pending) {
+      const references = Array.from(
+        JSON.stringify(node).matchAll(/"#\/\$defs\/([A-Za-z0-9]+)"/g),
+        (match) => match[1],
+      );
+      if (references.some((reference) => reference === undefined || !emitted.has(reference)))
+        continue;
+      lines.push(`const ${prefix}${name} = ${schema(node, prefix)};`);
+      emitted.add(name);
+      pending.delete(name);
+      progressed = true;
+    }
+    if (!progressed) throw new Error("Schema references contain a cycle or missing definition");
+  }
+  return lines.join("\n");
+}
+
+function schema(node: unknown, prefix: string): string {
+  const shape = records(node);
+  const reference = shape["$ref"];
+  if (typeof reference === "string") {
+    if (!/^#\/\$defs\/[a-zA-Z0-9]+$/.test(reference))
+      throw new Error(`Unexpected ref ${reference}`);
+    return `${prefix}${reference.split("/").at(-1)}`;
+  }
+  if (Object.hasOwn(shape, "const")) return `Schema.Literal(${JSON.stringify(shape.const)})`;
+  const choices = shape.oneOf ?? shape.anyOf;
+  if (Array.isArray(choices))
+    return `Schema.Union([${choices.map((choice) => schema(choice, prefix)).join(", ")}])`;
+  if (Array.isArray(shape.enum)) return `Schema.Literals(${JSON.stringify(shape.enum)})`;
+  if (Array.isArray(shape.type)) {
+    return `Schema.Union([${stringList(shape.type)
+      .map((type) => schema({ ...shape, type }, prefix))
+      .join(", ")}])`;
+  }
+  switch (shape.type) {
+    case undefined:
+      if (!Object.keys(shape).length) return "Schema.Unknown";
+      break;
+    case "null":
+      return "Schema.Null";
+    case "boolean":
+      return "Schema.Boolean";
+    case "integer": {
+      if (shape.format === "uint64") return "ExactU64";
+      const checks = [
+        typeof shape.minimum === "number"
+          ? `Schema.isGreaterThanOrEqualTo(${shape.minimum})`
+          : undefined,
+        typeof shape.maximum === "number"
+          ? `Schema.isLessThanOrEqualTo(${shape.maximum})`
+          : undefined,
+      ].filter((check) => check !== undefined);
+      return checks.length === 0 ? "Schema.Int" : `Schema.Int.check(${checks.join(", ")})`;
+    }
+    case "string": {
+      const checks = [
+        typeof shape.minLength === "number" ? `Schema.isMinLength(${shape.minLength})` : undefined,
+        typeof shape.maxLength === "number" ? `Schema.isMaxLength(${shape.maxLength})` : undefined,
+        patternFilter(shape.pattern),
+        typeof shape["x-maxUtf8Bytes"] === "number"
+          ? `Schema.makeFilter((value: string) => new TextEncoder().encode(value).byteLength <= ${shape["x-maxUtf8Bytes"]})`
+          : undefined,
+      ].filter((check) => check !== undefined);
+      return checks.length === 0 ? "Schema.String" : `Schema.String.check(${checks.join(", ")})`;
+    }
+    case "array":
+      if (Array.isArray(shape.prefixItems)) {
+        return `Schema.Tuple([${shape.prefixItems.map((item) => schema(item, prefix)).join(", ")}])`;
+      }
+      return `Schema.Array(${schema(shape.items, prefix)})`;
+    case "object": {
+      const required = new Set(stringList(shape.required ?? []));
+      const fields = Object.entries(records(shape.properties ?? {})).map(([name, value]) => {
+        const code = schema(value, prefix);
+        return `${JSON.stringify(name)}: ${required.has(name) ? code : `Schema.optionalKey(${code})`}`;
+      });
+      return `Schema.Struct({ ${fields.join(", ")} })`;
+    }
+  }
+  throw new Error(`Unimplemented JSON Schema shape ${JSON.stringify(node)}`);
+}
+
+function patternFilter(pattern: unknown): string | undefined {
+  if (typeof pattern !== "string") return undefined;
+  if (pattern === String.raw`^[^\u0000]+$`) {
+    return "Schema.makeFilter((value: string) => value.length > 0 && !value.includes(String.fromCodePoint(0)))";
+  }
+  return `Schema.isPattern(new RegExp(${JSON.stringify(pattern)}))`;
+}
+
+const router = source("router-success-schemas.json");
+const inspect = records(router.provider_session_inspect);
+const observe = records(router.events_observe);
+const local = source("local-frames.json");
+
+const generated = [
+  "// Generated by generate-contract.ts from the pinned Router MCP and local Rust schemas.",
+  'import { Schema } from "#gateway/effect-runtime";',
+  'import { exactU64 } from "#gateway/contract/exact-u64";',
+  "const ExactU64 = exactU64;",
+  definitionNames(inspect, "Inspect"),
+  definitionNames(observe, "Observe"),
+  definitionNames(local, "Local"),
+  `export const InspectSession = ${schema(inspect, "Inspect")};`,
+  `export const BoundedObservation = ${schema(observe, "Observe")};`,
+  "export const SessionRef = InspectSessionRef;",
+  "export const EnvelopeRefusal = LocalEnvelopeRefusal;",
+  "export const OrderedRecord = LocalOrderedRecord;",
+  "export const ItemFrame = LocalItemFrame;",
+  "export const SnapshotEndFrame = LocalSnapshotEndFrame;",
+  "export const HeartbeatFrame = LocalHeartbeatFrame;",
+  "export const GapFrame = LocalGapFrame;",
+  "export const EndedFrame = LocalEndedFrame;",
+].join("\n");
+
+process.stdout.write(`${generated}\n`);
