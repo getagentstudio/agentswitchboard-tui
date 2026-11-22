@@ -33,20 +33,37 @@ export interface GatewayClient {
   ): Effect.Effect<AsyncGenerator<GatewayFrame>, GatewayCallError>;
 }
 
+export type GatewayTool = "provider_session_inspect" | "events_observe";
+
+export type GatewayTraceEvent =
+  | {
+      readonly kind: "gateway-request";
+      readonly tool: GatewayTool;
+      readonly requestId: string;
+    }
+  | {
+      readonly kind: "gateway-response";
+      readonly tool: GatewayTool;
+      readonly requestId: string;
+      readonly status: number;
+    }
+  | {
+      readonly kind: "gateway-frame-consumed";
+      readonly requestId: string;
+      readonly frame: "history" | "snapshotEnd";
+      readonly epoch: string;
+      readonly sequence: string;
+    };
+
 export interface GatewayClientOptions {
   readonly socketPath: string;
   readonly platformFetch: typeof fetch;
-  readonly trace?: (event: {
-    readonly kind: string;
-    readonly tool: string;
-    readonly requestId: string;
-    readonly status?: number;
-  }) => void;
+  readonly trace?: (event: GatewayTraceEvent) => void;
 }
 
 export function createGatewayClient(options: GatewayClientOptions): GatewayClient {
   async function send(
-    tool: "provider_session_inspect" | "events_observe",
+    tool: GatewayTool,
     target: GatewayTarget,
     signal: AbortSignal,
   ): Promise<{ readonly response: Response; readonly requestId: string }> {
@@ -123,12 +140,32 @@ export function createGatewayClient(options: GatewayClientOptions): GatewayClien
         try: async (): Promise<AsyncGenerator<GatewayFrame>> => {
           const { response, requestId } = await send("events_observe", target, signal);
           if (!response.body) throw new Error("Gateway observation has no body");
-          return receiveGatewayFrames(response.body, requestId, target);
+          const frames = receiveGatewayFrames(response.body, requestId, target);
+          return options.trace ? traceDecodedFrames(frames, requestId, options.trace) : frames;
         },
         catch: (error): GatewayCallError => new GatewayCallError(error),
       });
     },
   };
+}
+
+async function* traceDecodedFrames(
+  frames: AsyncGenerator<GatewayFrame>,
+  requestId: string,
+  trace: (event: GatewayTraceEvent) => void,
+): AsyncGenerator<GatewayFrame> {
+  for await (const frame of frames) {
+    if (frame.kind === "history" || frame.kind === "snapshotEnd") {
+      trace({
+        kind: "gateway-frame-consumed",
+        requestId,
+        frame: frame.kind,
+        epoch: frame.cursor.epoch.toString(),
+        sequence: frame.cursor.sequence.toString(),
+      });
+    }
+    yield frame;
+  }
 }
 
 function contentType(response: Response): string | undefined {

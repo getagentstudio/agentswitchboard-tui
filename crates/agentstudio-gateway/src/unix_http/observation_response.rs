@@ -8,10 +8,14 @@ use futures_util::{StreamExt, stream};
 use http_body_util::{BodyExt, StreamBody};
 use hyper::{Response, body::Frame};
 use serde::Serialize;
+use state_machine_core::{StateMachine, StateTag};
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 
-use super::GatewayResponse;
+use super::{
+    GatewayResponse,
+    observation_order::{ObservationOrder, ObservationPhase, SourceArrival, SourceEffect},
+};
 use crate::session::session_source::ObservationStream;
 use agentstudio_gateway_contract::{
     local_gateway_wire::{
@@ -144,21 +148,50 @@ pub(crate) fn encode_observation(
     };
     let settings = Arc::new((id, target, limits));
     let body = stream::unfold(
-        (observation, heartbeat, lease, false, emitted, settings),
-        |(mut source, mut heartbeat, lease, terminal, mut emitted, settings)| async move {
-            if terminal {
-                return None;
-            }
+        Some((
+            observation,
+            heartbeat,
+            lease,
+            ObservationPhase::History,
+            emitted,
+            settings,
+        )),
+        |session| async move {
+            let (mut source, mut heartbeat, lease, mut phase, mut emitted, settings) = session?;
             let (id, target, limits) = &*settings;
-            let next = tokio::select! {
-                item = source.next() => item,
-                _ = heartbeat.tick() => {
-                    let millis = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |time| time.as_millis());
-                    let bytes = encode_frame("heartbeat", &HeartbeatFrame { server_ts_ms: u64::try_from(millis).unwrap_or_default() })?;
-                    return Some((Ok(Frame::data(bytes)), (source, heartbeat, lease, false, emitted, settings)));
+            let next = loop {
+                let arriving = tokio::select! {
+                    item = source.next() => item?,
+                    _ = heartbeat.tick() => {
+                        let millis = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |time| time.as_millis());
+                        let bytes = encode_frame("heartbeat", &HeartbeatFrame { server_ts_ms:u64::try_from(millis).unwrap_or_default() })?;
+                        return Some((Ok(Frame::data(bytes)), Some((source, heartbeat, lease, phase, emitted, settings))));
+                    }
+                };
+                let checked = ObservationOrder::transition(
+                    &phase,
+                    SourceArrival {
+                        observation: &arriving,
+                        position: emitted.position,
+                        emitted: &emitted.items,
+                    },
+                );
+                match checked {
+                    Ok((next_phase, effects)) => {
+                        phase = next_phase;
+                        match effects.as_slice() {
+                            [SourceEffect::Forward] => break arriving,
+                            [SourceEffect::DiscardReplay] => {}
+                            _ => return None,
+                        }
+                    }
+                    Err(refusal) => {
+                        eprintln!("gateway-observation-refused request={id:?} reason={refusal:?}");
+                        return None;
+                    }
                 }
             };
-            let (bytes, terminal) = match next? {
+            let (bytes, terminal) = match next {
                 next @ (SessionObservation::History { .. } | SessionObservation::Live { .. }) => {
                     let (phase, cursor, record) = match next {
                         SessionObservation::History { cursor, record } => {
@@ -204,7 +237,11 @@ pub(crate) fn encode_observation(
                     )
                 }
                 SessionObservation::Gap { cursor, reason } => {
-                    (gap_frame(Some(cursor), reason)?, true)
+                    let position = match reason {
+                        GapReason::EventTooLarge => emitted.position,
+                        GapReason::Lag | GapReason::Epoch => Some(cursor),
+                    };
+                    (gap_frame(position, reason)?, true)
                 }
                 SessionObservation::Ended(reason) => {
                     (encode_frame("ended", &EndedFrame { reason })?, true)
@@ -218,10 +255,14 @@ pub(crate) fn encode_observation(
                     true,
                 ),
             };
-            Some((
-                Ok(Frame::data(bytes)),
-                (source, heartbeat, lease, terminal, emitted, settings),
-            ))
+            let remaining = if terminal || phase.is_terminal() {
+                drop(lease);
+                drop(source);
+                None
+            } else {
+                Some((source, heartbeat, lease, phase, emitted, settings))
+            };
+            Some((Ok(Frame::data(bytes)), remaining))
         },
     );
     let mut response = Response::new(StreamBody::new(body).boxed_unsync());

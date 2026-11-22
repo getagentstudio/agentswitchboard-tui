@@ -338,3 +338,7 @@ fn json_body(status: StatusCode, body: Vec<u8>) -> GatewayResponse {
 #[cfg(test)]
 #[path = "unix_gateway_server_test.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "source_guard_wire_test.rs"]
+mod source_guard_wire_test;

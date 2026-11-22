@@ -1,0 +1,24 @@
+[package]
+name = "agentstudio-gateway-proof"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+agentstudio-gateway = { path = "../agentstudio-gateway" }
+agentstudio-gateway-contract = { path = "../agentstudio-gateway-contract" }
+futures-util.workspace = true
+quinn = { version = "=0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rcgen = "=0.14.10"
+serde.workspace = true
+serde_json.workspace = true
+state-machine-core.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

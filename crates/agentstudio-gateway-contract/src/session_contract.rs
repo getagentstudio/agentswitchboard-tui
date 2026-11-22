@@ -37,25 +37,27 @@ impl SessionRef {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectArguments {
     pub target: SessionRef,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ObserveArguments {
     pub target: SessionRef,
     pub timeout_seconds: u64,
     pub max_events: usize,
     pub max_bytes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub after_sequence: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectResult {
     pub target: SessionRef,
     pub state: ProviderState,
@@ -63,19 +65,19 @@ pub struct InspectResult {
     pub history: HistoryAvailability,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderState {
     Idle,
 }
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HistoryAvailability {
     Available,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FixtureCapabilities {
     pub load: bool,
     pub resume: bool,
@@ -90,16 +92,16 @@ pub struct FixtureCapabilities {
     pub auth_status: FixtureAuthStatus,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PromptCapabilities {
     pub image: bool,
     pub audio: bool,
     pub embedded_context: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum FixtureAuthStatus {
     #[default]
     NotReported,
