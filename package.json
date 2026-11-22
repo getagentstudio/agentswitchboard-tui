@@ -4,6 +4,9 @@
   "type": "module",
   "imports": {
     "#app/*": "./apps/agentswitchboard-tui/src/*.ts",
+    "#opencode-tui": "./vendors/opencode/packages/tui/src/index.tsx",
+    "#opencode-client": "./vendors/opencode/packages/client/src/promise/index.ts",
+    "#opencode-global": "./vendors/opencode/packages/util/src/global.ts",
     "#gateway/*": "./packages/agentstudio-gateway-client/src/*.ts"
   }
 }
