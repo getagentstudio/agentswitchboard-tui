@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/agentstudio-gateway-contract", "crates/agentstudio-gateway"]
+members = ["crates/agentstudio-gateway-contract", "crates/agentstudio-gateway", "crates/agentstudio-gateway-proof"]
+default-members = ["crates/agentstudio-gateway-contract", "crates/agentstudio-gateway"]
 resolver = "3"
 
 [workspace.package]
@@ -25,5 +26,6 @@ serde_json = { version = "1", features = ["raw_value"] }
 rustix = { version = "1", features = ["process"] }
 schemars = { version = "1", features = ["derive"] }
 thiserror = "2"
+state-machine-core = { git = "https://github.com/agent-collaboration/agent-collaboration", rev = "68bcff9ec61ef34640e74fff2cbcbb2de82a8780" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time", "fs", "io-util"] }
 tokio-util = "0.7"

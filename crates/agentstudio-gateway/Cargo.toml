@@ -18,6 +18,7 @@ serde.workspace = true
 serde_json.workspace = true
 rustix.workspace = true
 thiserror.workspace = true
+state-machine-core.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 

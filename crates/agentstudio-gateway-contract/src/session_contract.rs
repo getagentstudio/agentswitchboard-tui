@@ -1,5 +1,7 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
+
+use crate::closed_kind::deserialize_closed_kind;
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -37,25 +39,27 @@ impl SessionRef {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectArguments {
     pub target: SessionRef,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ObserveArguments {
     pub target: SessionRef,
     pub timeout_seconds: u64,
     pub max_events: usize,
     pub max_bytes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub after_sequence: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectResult {
     pub target: SessionRef,
     pub state: ProviderState,
@@ -63,19 +67,19 @@ pub struct InspectResult {
     pub history: HistoryAvailability,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderState {
     Idle,
 }
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HistoryAvailability {
     Available,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FixtureCapabilities {
     pub load: bool,
     pub resume: bool,
@@ -90,8 +94,8 @@ pub struct FixtureCapabilities {
     pub auth_status: FixtureAuthStatus,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PromptCapabilities {
     pub image: bool,
     pub audio: bool,
@@ -99,8 +103,20 @@ pub struct PromptCapabilities {
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum FixtureAuthStatus {
     #[default]
     NotReported,
+}
+
+impl<'de> Deserialize<'de> for FixtureAuthStatus {
+    fn deserialize<Input>(input: Input) -> Result<Self, Input::Error>
+    where
+        Input: Deserializer<'de>,
+    {
+        match deserialize_closed_kind(input)?.as_str() {
+            "notReported" => Ok(Self::NotReported),
+            unknown => Err(de::Error::unknown_variant(unknown, &["notReported"])),
+        }
+    }
 }

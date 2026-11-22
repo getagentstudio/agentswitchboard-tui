@@ -1,7 +1,10 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+use crate::closed_kind::deserialize_closed_kind;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Cursor {
     pub epoch: u64,
     pub sequence: u64,
@@ -90,7 +93,7 @@ pub struct TranscriptItem {
     pub text: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, JsonSchema, Serialize, Eq, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum TranscriptItemKind {
     UserMessage,
@@ -98,7 +101,24 @@ pub enum TranscriptItemKind {
     Notice,
 }
 
-#[derive(Clone, Copy, Debug, JsonSchema, Serialize)]
+impl<'de> Deserialize<'de> for TranscriptItemKind {
+    fn deserialize<Input>(input: Input) -> Result<Self, Input::Error>
+    where
+        Input: Deserializer<'de>,
+    {
+        match deserialize_closed_kind(input)?.as_str() {
+            "userMessage" => Ok(Self::UserMessage),
+            "agentMessage" => Ok(Self::AgentMessage),
+            "notice" => Ok(Self::Notice),
+            unknown => Err(de::Error::unknown_variant(
+                unknown,
+                &["userMessage", "agentMessage", "notice"],
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GapReason {
     Lag,
@@ -106,7 +126,7 @@ pub enum GapReason {
     EventTooLarge,
 }
 
-#[derive(Clone, Copy, Debug, JsonSchema, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum EndReason {
     Completed,
@@ -137,7 +157,7 @@ pub enum SessionObservation {
     },
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ResultReason {
     DeadlineReached,
