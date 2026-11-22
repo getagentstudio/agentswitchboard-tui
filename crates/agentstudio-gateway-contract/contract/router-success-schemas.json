@@ -1,0 +1,685 @@
+{
+  "provider_session_inspect": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "$ref": "#/$defs/SessionRef"
+      },
+      "state": {
+        "$ref": "#/$defs/ProviderSessionState"
+      },
+      "capabilities": {
+        "$ref": "#/$defs/CapabilityReport"
+      },
+      "history": {
+        "$ref": "#/$defs/ProviderHistoryAvailability"
+      },
+      "settingsCatalog": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProviderSettingsCatalogView"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "requestedMode": {
+        "description": "The permission mode asked for at start (absent means auto), kept by\nthis Host since the session started; `settingsCatalog.currentMode` is\nthe agent's actual mode (R3).",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "modeReason": {
+        "description": "Why the actual mode differs from the requested one.",
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProviderModeReason"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fast": {
+        "description": "The agent's fast option from the catalog this Host holds; absent when\nit holds none, for example after a restart before the session loads.",
+        "anyOf": [
+          {
+            "$ref": "#/$defs/FastState"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "additionalProperties": {
+      "not": {}
+    },
+    "required": [
+      "target",
+      "state",
+      "capabilities",
+      "history"
+    ],
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ProviderSessionInspectResult",
+    "$defs": {
+      "SessionRef": {
+        "description": "A conversation scoped to the endpoint that interprets its opaque ID.\n\nThe `session_id` value is owned and interpreted by the referenced endpoint;\nit is not a Router-wide, computer-wide, process, or connection identity.",
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "$ref": "#/$defs/EndpointRef"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/SessionId"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "endpoint",
+          "sessionId"
+        ]
+      },
+      "EndpointRef": {
+        "description": "An adapter endpoint within one Router service, independent of its locator.\n\n`service_id` identifies the Router service; `endpoint_id` selects the\nstable named adapter endpoint within that service.",
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "$ref": "#/$defs/UuidIdentity"
+          },
+          "endpointId": {
+            "$ref": "#/$defs/EndpointId"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "serviceId",
+          "endpointId"
+        ]
+      },
+      "UuidIdentity": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])"
+      },
+      "EndpointId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,63}$(?![\\s\\S])"
+      },
+      "SessionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "pattern": "^[^\\u0000]+$",
+        "x-maxUtf8Bytes": 4096
+      },
+      "ProviderSessionState": {
+        "type": "string",
+        "enum": [
+          "unloaded",
+          "idle",
+          "running",
+          "requiresAction",
+          "authenticationRequired",
+          "closed"
+        ]
+      },
+      "CapabilityReport": {
+        "description": "Features confirmed by the agent and its back door for one Session.",
+        "type": "object",
+        "properties": {
+          "load": {
+            "type": "boolean"
+          },
+          "resume": {
+            "type": "boolean"
+          },
+          "close": {
+            "type": "boolean"
+          },
+          "list": {
+            "type": "boolean"
+          },
+          "steer": {
+            "type": "boolean"
+          },
+          "queue": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/QueueSupport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modes": {
+            "type": "boolean"
+          },
+          "configOptions": {
+            "type": "boolean"
+          },
+          "elicitation": {
+            "type": "boolean"
+          },
+          "usage": {
+            "type": "boolean"
+          },
+          "promptContent": {
+            "$ref": "#/$defs/PromptContentCapabilities"
+          },
+          "authStatus": {
+            "$ref": "#/$defs/ProviderAuthStatus"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "load",
+          "resume",
+          "close",
+          "list",
+          "steer",
+          "modes",
+          "configOptions",
+          "elicitation",
+          "usage",
+          "promptContent",
+          "authStatus"
+        ]
+      },
+      "QueueSupport": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/QueueCapability"
+          },
+          "canCancel": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "kind",
+          "canCancel"
+        ]
+      },
+      "QueueCapability": {
+        "type": "string",
+        "enum": [
+          "native",
+          "router"
+        ]
+      },
+      "PromptContentCapabilities": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "boolean"
+          },
+          "audio": {
+            "type": "boolean"
+          },
+          "embeddedContext": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "image",
+          "audio",
+          "embeddedContext"
+        ]
+      },
+      "ProviderAuthStatus": {
+        "description": "Connection-scoped auth status shared by Sessions on that provider connection.\nIt contains no account, organization, plan, or vendor details.",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "notReported"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": {
+              "not": {}
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "loggedOut"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": {
+              "not": {}
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "account"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "label"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "apiKey"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "label"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "gateway"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "label"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "external"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "label"
+            ]
+          }
+        ]
+      },
+      "ProviderHistoryAvailability": {
+        "type": "string",
+        "enum": [
+          "available",
+          "historyUnavailable"
+        ]
+      },
+      "ProviderSettingsCatalogView": {
+        "type": "object",
+        "properties": {
+          "currentMode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ProviderSettingChoiceView"
+            }
+          },
+          "configOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ProviderConfigOptionView"
+            }
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "modes",
+          "configOptions"
+        ]
+      },
+      "ProviderSettingChoiceView": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "value",
+          "label"
+        ]
+      },
+      "ProviderConfigOptionView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProviderSettingName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currentValue": {
+            "$ref": "#/$defs/ProviderConfigValueView"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ProviderSettingChoiceView"
+            }
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "id",
+          "name",
+          "currentValue",
+          "choices"
+        ]
+      },
+      "ProviderSettingName": {
+        "type": "string",
+        "enum": [
+          "mode",
+          "model",
+          "effort",
+          "fast"
+        ]
+      },
+      "ProviderConfigValueView": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "select"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string",
+                "const": "boolean"
+              }
+            },
+            "additionalProperties": {
+              "not": {}
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          }
+        ]
+      },
+      "ProviderModeReason": {
+        "description": "Why a session's actual permission mode differs from the requested one.",
+        "oneOf": [
+          {
+            "description": "The agent does not offer its auto mode; its ask-first mode is used.",
+            "type": "string",
+            "const": "autoNotOffered"
+          },
+          {
+            "description": "The agent accepted auto but put the session in its ask-first mode.",
+            "type": "string",
+            "const": "agentFellBack"
+          },
+          {
+            "description": "The Router has no auto realization for this agent; its mode is unchanged.",
+            "type": "string",
+            "const": "autoNotRealized"
+          },
+          {
+            "description": "The agent's own auto refuses without asking and escalation is not\nproven, so its ask-first mode stands in.",
+            "type": "string",
+            "const": "escalationUnproven"
+          },
+          {
+            "description": "Setting the auto realization failed; the agent kept its own mode.",
+            "type": "string",
+            "const": "autoNotApplied"
+          }
+        ]
+      },
+      "FastState": {
+        "description": "What the agent last reported for its fast option.",
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ]
+          },
+          {
+            "description": "The agent offers no fast option.",
+            "type": "string",
+            "const": "none"
+          }
+        ]
+      }
+    }
+  },
+  "events_observe": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "$ref": "#/$defs/SessionRef"
+      },
+      "generation": {
+        "$ref": "#/$defs/CodexGeneration"
+      },
+      "attached": {
+        "type": "boolean"
+      },
+      "events": {
+        "type": "array",
+        "items": {}
+      },
+      "endReason": {
+        "$ref": "#/$defs/ObservationEndReason"
+      },
+      "continuationGap": {
+        "type": "boolean"
+      },
+      "epoch": {
+        "description": "Present for provider hub history; native results omit this field.",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0
+      }
+    },
+    "additionalProperties": {
+      "not": {}
+    },
+    "required": [
+      "target",
+      "generation",
+      "attached",
+      "events",
+      "endReason",
+      "continuationGap"
+    ],
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "BoundedObservationResult",
+    "$defs": {
+      "SessionRef": {
+        "description": "A conversation scoped to the endpoint that interprets its opaque ID.\n\nThe `session_id` value is owned and interpreted by the referenced endpoint;\nit is not a Router-wide, computer-wide, process, or connection identity.",
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "$ref": "#/$defs/EndpointRef"
+          },
+          "sessionId": {
+            "$ref": "#/$defs/SessionId"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "endpoint",
+          "sessionId"
+        ]
+      },
+      "EndpointRef": {
+        "description": "An adapter endpoint within one Router service, independent of its locator.\n\n`service_id` identifies the Router service; `endpoint_id` selects the\nstable named adapter endpoint within that service.",
+        "type": "object",
+        "properties": {
+          "serviceId": {
+            "$ref": "#/$defs/UuidIdentity"
+          },
+          "endpointId": {
+            "$ref": "#/$defs/EndpointId"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "serviceId",
+          "endpointId"
+        ]
+      },
+      "UuidIdentity": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])"
+      },
+      "EndpointId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,63}$(?![\\s\\S])"
+      },
+      "SessionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "pattern": "^[^\\u0000]+$",
+        "x-maxUtf8Bytes": 4096
+      },
+      "CodexGeneration": {
+        "description": "One managed backend incarnation within a particular service process lifetime.",
+        "type": "object",
+        "properties": {
+          "serviceEpoch": {
+            "$ref": "#/$defs/UuidIdentity"
+          },
+          "generation": {
+            "$ref": "#/$defs/GenerationNumber"
+          }
+        },
+        "additionalProperties": {
+          "not": {}
+        },
+        "required": [
+          "serviceEpoch",
+          "generation"
+        ]
+      },
+      "GenerationNumber": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "ObservationEndReason": {
+        "type": "string",
+        "enum": [
+          "deadlineReached",
+          "resultLimitReached",
+          "callerCancelled",
+          "backendDisconnected",
+          "resyncRequired"
+        ]
+      }
+    }
+  }
+}
