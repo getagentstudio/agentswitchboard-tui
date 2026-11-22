@@ -1,5 +1,7 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
+
+use crate::closed_kind::deserialize_closed_kind;
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -100,9 +102,21 @@ pub struct PromptCapabilities {
     pub embedded_context: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum FixtureAuthStatus {
     #[default]
     NotReported,
+}
+
+impl<'de> Deserialize<'de> for FixtureAuthStatus {
+    fn deserialize<Input>(input: Input) -> Result<Self, Input::Error>
+    where
+        Input: Deserializer<'de>,
+    {
+        match deserialize_closed_kind(input)?.as_str() {
+            "notReported" => Ok(Self::NotReported),
+            unknown => Err(de::Error::unknown_variant(unknown, &["notReported"])),
+        }
+    }
 }

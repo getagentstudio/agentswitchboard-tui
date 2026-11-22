@@ -12,23 +12,30 @@ export function observedHistory(
   );
 }
 
+export interface HistoryCursor {
+  readonly epoch: string;
+  readonly sequence: string;
+}
+
 export function checkHistoryReceipts(
   events: readonly AppTrace[],
   requestId: string,
-  expectedSequences: readonly string[],
+  expectedCursors: readonly HistoryCursor[],
 ): void {
   const records = observedHistory(events, requestId);
   must(
-    records.length === expectedSequences.length &&
-      records.every(
-        (record, index): boolean =>
-          record.sequence === expectedSequences[index] &&
-          typeof record.epoch === "string" &&
-          /^[0-9]+$/.test(record.epoch) &&
+    records.length === expectedCursors.length &&
+      records.every((record, index): boolean => {
+        const expected = expectedCursors[index];
+        return (
+          expected !== undefined &&
+          record.epoch === expected.epoch &&
+          record.sequence === expected.sequence &&
           Object.keys(record).every((key) =>
             ["kind", "pid", "at", "requestId", "frame", "epoch", "sequence"].includes(key),
-          ),
-      ),
+          )
+        );
+      }),
     "History evidence did not match the selected request and exact cursor",
   );
 }

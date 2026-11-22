@@ -16,7 +16,11 @@ import {
   verifySocket,
   type Executable,
 } from "./fixture-terminal.ts";
-import { checkHistoryReceipts, correlateObservation, observedHistory } from "./fixture-receipts.ts";
+import {
+  checkHistoryReceipts,
+  correlateObservation,
+  type HistoryCursor,
+} from "./fixture-receipts.ts";
 
 const usage = [
   "Usage: bun scripts/verification/tui/verify-quinn-fixture.ts",
@@ -25,6 +29,11 @@ const usage = [
   "  --output <new absolute receipt directory>",
   "Uses a private Unix Gateway, real loopback Quinn, and isolated stock TUI terminals.",
 ].join("\n");
+
+const expectedHistory = [
+  { epoch: "1", sequence: "9007199254740992" },
+  { epoch: "1", sequence: "9007199254740993" },
+] as const satisfies readonly HistoryCursor[];
 
 interface Inputs {
   readonly app: Executable;
@@ -190,12 +199,13 @@ async function twoTerminals(run: RemoteRun): Promise<void> {
   await terminal.visible(a, "history", ...peer.history);
   const aPid = terminal.verifyRunning(a);
   const aCall = correlateObservation({ terminal: a, gatewayLog, peerLog: peer.log, ordinal: 1 });
-  checkHistoryReceipts(appTrace(a), aCall.requestId, ["9007199254740992", "9007199254740993"]);
+  checkHistoryReceipts(appTrace(a), aCall.requestId, expectedHistory);
 
   const b = terminal.launch("b", socket);
   await terminal.visible(b, "history", ...peer.history);
   must(terminal.verifyRunning(b) !== aPid, "Expected two distinct app processes");
   const bCall = correlateObservation({ terminal: b, gatewayLog, peerLog: peer.log, ordinal: 2 });
+  checkHistoryReceipts(appTrace(b), bCall.requestId, expectedHistory);
   must(
     aCall.stream !== bCall.stream && aCall.lease !== bCall.lease,
     "Expected independent streams and leases",
@@ -244,7 +254,7 @@ async function heldCut(run: RemoteRun): Promise<void> {
       : undefined,
   );
   const call = correlateObservation({ terminal: pane, gatewayLog, peerLog: peer.log, ordinal: 1 });
-  checkHistoryReceipts(appTrace(pane), call.requestId, ["9007199254740992", "9007199254740993"]);
+  checkHistoryReceipts(appTrace(pane), call.requestId, expectedHistory);
   must(
     !appTrace(pane).some((event) => event.kind === "snapshot"),
     "App committed while the cut was held",
@@ -302,10 +312,7 @@ async function admittedLoss(run: RemoteRun, timing: "early" | "late"): Promise<v
     pid = terminal.verifyRunning(pane);
   }
   const call = correlateObservation({ terminal: pane, gatewayLog, peerLog: peer.log, ordinal: 1 });
-  must(
-    observedHistory(appTrace(pane), call.requestId).length === 2,
-    "Loss did not reach the intended history consumer",
-  );
+  checkHistoryReceipts(appTrace(pane), call.requestId, expectedHistory);
   await run.control({ kind: "abort", stream: Number(call.stream) });
   if (timing === "early") {
     await terminal.exited(pane, 1);
